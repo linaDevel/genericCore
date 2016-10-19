@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public abstract class GenericCore {
+public class GenericCore {
 
     private static GenericCore instance;
 
@@ -33,16 +33,19 @@ public abstract class GenericCore {
     private final ExecutorService threadPool;
     private final Map<String, Queue<?>> queueMap = new HashMap<>();
 
+    private GenericWorker worker;
+
     private boolean isRunning = true;
     private boolean isReadyForShutDown = false;
 
     private static final Logger logger = LoggerFactory.getLogger(GenericCore.class);
+    private static String configName = "config.ini";
 
     public GenericCore(ArgParser.Args commandArgs) throws IOException {
         args = commandArgs;
 
         config = new ConfigFile(
-            new File(args.kwargs("config", "config.ini"))
+            new File(args.kwargs("config", configName))
         );
 
         discoveryHelper = new Reflections(
@@ -58,8 +61,25 @@ public abstract class GenericCore {
             .addShutdownHook(new Thread(new ShutdownHook()));
     }
 
-    public static GenericCore getInstance() {
+    public static GenericCore instance(String[] cmdLine) {
+        ArgParser.Args args = ArgParser.parse(cmdLine);
+
+        try {
+            GenericCore.instance = new GenericCore(args);
+        } catch (IOException e) {
+            logger.error("Unable to open config file: {}", e.getMessage());
+            System.exit(1);
+        }
+
+        return GenericCore.instance;
+    }
+
+    public static GenericCore instance() {
         return instance;
+    }
+
+    public static void setConfigName(String configName) {
+        GenericCore.configName = configName;
     }
 
     public ConfigFile config() {
@@ -106,28 +126,41 @@ public abstract class GenericCore {
         return (Queue<T>) queueMap.get(name);
     }
 
+    public void worker(GenericWorker worker) {
+        this.worker = worker;
+    }
+
+    public GenericWorker worker() {
+        return worker;
+    }
+
     public void mainLoop() {
-        logger.info("Core started");
-        execute(new ConfigWatch(config));
+        if (worker != null) {
+            logger.info("Core started");
+            execute(new ConfigWatch(config));
+            worker.onInit();
 
-        run();
+            worker.run();
 
-        logger.info("Core is going to shutdown. Waiting for remaining operations...");
+            logger.info("Core is going to shutdown. Waiting for remaining operations...");
+            worker.onShutDown();
+            managers.values().forEach(GenericManager::onShutDown);
+            threadPool.shutdown();
+        } else {
+            logger.error("Main Worker is not set. Shutting down.");
+            isRunning = false;
+        }
+
         isReadyForShutDown = true;
-
-        managers.values().forEach(GenericManager::onShutDown);
-
         logger.info("Core is down...");
         Runtime.getRuntime().exit(0);
     }
 
-    public abstract void run();
-
-    public boolean isRunning() {
+    public boolean running() {
         return isRunning;
     }
 
-    public boolean isReadyForShutDown() {
+    public boolean readyForShutDown() {
         return isReadyForShutDown;
     }
 

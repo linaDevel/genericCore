@@ -10,7 +10,7 @@ import java.util.Map;
 
 public abstract class GenericManager<T> {
 
-    protected final GenericCore core = GenericCore.getInstance();
+    protected final GenericCore core = GenericCore.instance();
     protected Map<Class<? extends T>, T> objects;
 
     protected final static Logger logger = LoggerFactory.getLogger(GenericManager.class);

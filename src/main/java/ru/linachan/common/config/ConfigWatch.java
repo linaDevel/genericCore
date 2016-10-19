@@ -27,13 +27,13 @@ public class ConfigWatch implements Runnable {
             logger.info("Watchdog started");
             try (final WatchService watchService = FileSystems.getDefault().newWatchService()) {
                 final WatchKey watchKey = configDir.register(watchService, StandardWatchEventKinds.ENTRY_MODIFY);
-                while (GenericCore.getInstance().isRunning()) {
+                while (GenericCore.instance().running()) {
                     final WatchKey wk = watchService.take();
                     for (WatchEvent<?> event : wk.pollEvents()) {
                         final Path changed = (Path) event.context();
                         if (changed.equals(configFile)) {
                             logger.info("Config file changed. Reloading...");
-                            GenericCore.getInstance().config().readConfig();
+                            GenericCore.instance().config().readConfig();
                         }
                     }
 

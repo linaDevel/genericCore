@@ -11,9 +11,9 @@ public class ShutdownHook implements Runnable {
 
     @Override
     public void run() {
-        GenericCore.getInstance().shutDown();
+        GenericCore.instance().shutDown();
 
-        while (!GenericCore.getInstance().isReadyForShutDown()) {
+        while (!GenericCore.instance().readyForShutDown()) {
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
